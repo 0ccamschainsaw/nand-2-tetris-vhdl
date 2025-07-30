@@ -35,21 +35,24 @@ CHIP CPU {
 	//// Replace this comment with your code.
     DMux(in= true, sel= instruction[15], a= opa, b=opc );  
 
-    And(a= opa, b= instruction[5], out=writeA );
+    Or(a= opa, b= instruction[5], out=writeA );
     //writeA if (A-instr || (isCInstruction && dest==A))
     Mux16(a= outalu, b= instruction, sel= opa, out= aregin);
     ARegister(in= aregin, load= writeA, out=aregout, out[0..14]=addressM);
 
     And(a= opa, b= instruction[4], out= writeD);
-    DRegister(in=outalu , load= writeD, out= dregout);
+    
     Mux16(a= aregout, b= inM, sel= instruction[12], out= out1);  //~a bit selects A
 
     And(a= opc, b= instruction[3], out= writeM);
 
-    ALU(x=dregout , y= out1, zx= instruction[11], nx=instruction[10] ,
-     zy= instruction[9], ny= instruction[8], 
-     f= instruction[7], no= instruction[6],
-     out= outalu,out=outM, zr= zero, ng= neg);
+    ALU(x=dregout , y= out1, zx= instruction[11], nx=instruction[10],
+    zy= instruction[9], ny= instruction[8], 
+    f= instruction[7], no= instruction[6],
+    out= outalu,out=outM, zr= zero, 
+    ng= neg);
+    
+    DRegister(in=outalu , load= writeD, out= dregout);
     //x is D, Y is A reg, c1 to c6 are control bits
 
     Not(in= zero, out= nonzero);
@@ -59,7 +62,7 @@ CHIP CPU {
     And(a= pos, b= instruction[0], out= JGT);
     And(a= zero, b= instruction[1], out= JEQ);
     And(a= neg, b= instruction[2], out= JLT);
-    And(a= JLT, b= JGT, out= JMP);
+    Or(a= JLT, b= JGT, out= JMP);
     Or(a=JEQ, b=JLT, out=JLE);
 
     And(a= opc, b= JMP, out= Pcload);
