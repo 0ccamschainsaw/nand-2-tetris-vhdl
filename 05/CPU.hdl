@@ -1,0 +1,68 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/5/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM = 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+	//// Replace this comment with your code.
+    DMux(in= true, sel= instruction[15], a= opa, b=opc );  
+
+    And(a= opa, b= instruction[5], out=writeA );
+    //writeA if (A-instr || (isCInstruction && dest==A))
+    Mux16(a= outalu, b= instruction, sel= opa, out= aregin);
+    ARegister(in= aregin, load= writeA, out=aregout, out[0..14]=addressM);
+
+    And(a= opa, b= instruction[4], out= writeD);
+    DRegister(in=outalu , load= writeD, out= dregout);
+    Mux16(a= aregout, b= inM, sel= instruction[12], out= out1);  //~a bit selects A
+
+    And(a= opc, b= instruction[3], out= writeM);
+
+    ALU(x=dregout , y= out1, zx= instruction[11], nx=instruction[10] ,
+     zy= instruction[9], ny= instruction[8], 
+     f= instruction[7], no= instruction[6],
+     out= outalu,out=outM, zr= zero, ng= neg);
+    //x is D, Y is A reg, c1 to c6 are control bits
+
+    Not(in= zero, out= nonzero);
+    Not(in= neg, out= nonneg);
+    And(a= nonneg, b= nonzero, out= pos);
+
+    And(a= pos, b= instruction[0], out= JGT);
+    And(a= zero, b= instruction[1], out= JEQ);
+    And(a= neg, b= instruction[2], out= JLT);
+    And(a= JLT, b= JGT, out= JMP);
+    Or(a=JEQ, b=JLT, out=JLE);
+
+    And(a= opc, b= JMP, out= Pcload);
+    Not(in= Pcload, out= Pcinc);
+    PC(in= aregout, load= Pcload, inc= Pcinc, reset=reset , out[0..14]= pc);
+}
